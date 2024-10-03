@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personalized E-commerce</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="static/stylesheet.css">
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">E-commerce</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link active" href="#">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">Shop</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">About Us</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">Contact</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">Cart</a></li>
+                </ul>
+            </div>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <!-- Example of conditional rendering -->
+                    {% if session.get('username') %}
+                    <div class="dropdown">
+                        <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            Hello, {{ session['username'] }}
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                            <li><a class="dropdown-item" href="#"
+                                    onclick="document.getElementById('logout-form').submit();">Sign Out</a></li>
+                        </ul>
+                    </div>
+                    {% else %}
+                    <a class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a>
+                    {% endif %}
+
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title mx-auto" id="loginModalLabel">Sign In</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="/login" method="POST">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username"
+                                placeholder="Enter your username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" name="password"
+                                placeholder="Enter your password" required>
+                        </div>
+                        <button type="submit" class="btn btn-dark w-100">Login</button>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <p class="text-center w-100">New user? <a href="#" data-bs-toggle="modal"
+                            data-bs-target="#signupModal" data-bs-dismiss="modal">Sign Up</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sign Up Modal -->
+    <div class="modal fade" id="signupModal" tabindex="-1" aria-labelledby="signupModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title mx-auto" id="signupModalLabel">Create Account</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" action="/signup">
+                        <div class="mb-3">
+                            <label for="signupUsername" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username"
+                                placeholder="Enter your username">
+                        </div>
+                        <div class="mb-3">
+                            <label for="signupEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email"
+                                placeholder="Enter your email">
+                        </div>
+                        <div class="mb-3">
+                            <label for="signupPhone" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="phone" name="phone"
+                                placeholder="Enter your phone number">
+                        </div>
+                        <div class="mb-3">
+                            <label for="signupPassword" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" name="password"
+                                placeholder="Enter your password">
+                        </div>
+                        <div class="mb-3">
+                            <label for="signupRePassword" class="form-label">Re-enter Password</label>
+                            <input type="password" class="form-control" id="signupRePassword"
+                                placeholder="Re-enter your password">
+                        </div>
+                        <button type="submit" class="btn btn-dark w-100">Sign Up</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Form -->
+    <form id="logout-form" action="/logout" method="POST" style="display: none;"></form>
+
+    <!-- Toast container -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
+        <div id="signupToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto">Success</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                Sign up successful!
+            </div>
+        </div>
+    </div>
+
+    <!-- Hero Section with Search -->
+    <section class="bg-light text-center py-5">
+        <h1 class="display-4">Find Your Perfect Product</h1>
+        <form class="d-flex justify-content-center mt-4" action="/recommendations" method="post">
+            <input class="form-control me-2 w-50" type="search" placeholder="Search for products..." aria-label="Search" name="products" required>
+            <input type="hidden" name="user_id" value="{{ session['user_id'] }}">
+            <button class="btn btn-dark" type="submit">Search</button>
+        </form>
+    </section>
+    
+
+    <!-- Featured Products Carousel -->
+    <section class="container my-5">
+        <h2 class="text-center mb-4">Featured Products</h2>
+        <div id="carouselExampleIndicators" class="carousel slide" data-bs-ride="carousel">
+            <div class="carousel-indicators">
+                <button type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide-to="0"
+                    class="active"></button>
+                <button type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide-to="1"></button>
+                <button type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide-to="2"></button>
+            </div>
+            <div class="carousel-inner">
+                <div class="carousel-item active">
+                    <img src="https://mclaren.bloomreach.io/cdn-cgi/image/width=680,height=900,fit=crop,quality=80,format=webp/delivery/resources/content/gallery/mclaren-racing/team-members/lando-norris-team-landing-page-hero-2024.jpg"
+                        class="d-block w-100" alt="Product 1">
+                    <div class="carousel-caption d-none d-md-block">
+                        <h5>Product 1</h5>
+                    </div>
+                </div>
+                <div class="carousel-item">
+                    <img src="https://media.formula1.com/image/upload/f_auto,c_limit,q_75,w_1320/content/dam/fom-website/drivers/2024Drivers/ricciardo"
+                        class="d-block w-100" alt="Product 2">
+                    <div class="carousel-caption d-none d-md-block">
+                        <h5>Product 2</h5>
+                    </div>
+                </div>
+                <div class="carousel-item">
+                    <img src="https://mclaren.bloomreach.io/cdn-cgi/image/width=680,height=900,fit=crop,quality=80,format=webp/delivery/resources/content/gallery/mclaren-racing/team-members/oscar-piastri-team-landing-page-hero-2024.jpg"
+                        class="d-block w-100" alt="Product 3">
+                    <div class="carousel-caption d-none d-md-block">
+                        <h5>Product 3</h5>
+                    </div>
+                </div>
+            </div>
+            <button class="carousel-control-prev" type="button" data-bs-target="#carouselExampleIndicators"
+                data-bs-slide="prev">
+                <span class="carousel-control-prev-icon"></span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#carouselExampleIndicators"
+                data-bs-slide="next">
+                <span class="carousel-control-next-icon"></span>
+            </button>
+        </div>
+    </section>
+
+    <!-- Trending Products Section -->
+    <section class="container my-5">
+        <h2 class="text-center mb-4">Trending Products</h2>
+        <div class="row">
+            {% for product, img_url, price in zip(trending_products.itertuples(), random_product_image_urls,
+            random_price) %}
+            <div class="col-md-4">
+                <div class="card">
+                    <img src="{{ img_url }}" class="card-img-top" alt="{{ product.ProductName }}">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ product.ProductName }}</h5>
+                        <p class="card-text">{{ truncate(product.Description, 50) }}</p>
+                        <p class="card-text">Price: ${{ price }}</p>
+                        <button class="btn btn-primary">Buy Now</button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+
+    <!-- Call to Action Section -->
+    <section class="bg-dark text-white text-center py-5">
+        <h2>Sign Up for Exclusive Offers</h2>
+        <p>Get notified about the latest products and special offers!</p>
+        <button class="btn btn-outline-light">Join Now</button>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white text-center py-3">
+        <p>&copy; 2024 Personalized E-commerce. All rights reserved.</p>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Automatically show the toast when the page loads
+        var signupSuccess = "{{ signup_success }}";
+        if (signupSuccess === "True") {
+            var toastElement = document.getElementById('signupToast');
+            var toast = new bootstrap.Toast(toastElement);
+            toast.show();
+        }
+    </script>
+</body>
+
+</html>
