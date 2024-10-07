@@ -379,6 +379,25 @@ def recommendations():
                                    random_product_image_urls=random_product_image_urls,
                                    random_price=prices)
         
+# Function to fetch product details
+def fetch_product_by_id(product_id):
+    if product_id in list(product_data['Prod Id']):
+        return product_data[product_data['Prod Id'] == product_id].iloc[0]
+
+# Route to render the product details page
+@app.route('/product/<int:product_id>')
+def product_detail(product_id):
+    # Fetch product details from your data source using the product_id
+    product = fetch_product_by_id(product_id)
+    # Content based recommendations
+    content_based_rec = content_based_recommendations(product_data, product['Product Name'], top_n=20)
+    # Item based collaborative recommendations
+    top_rec, specific_item_based_rec = specific_item_based_recommendation(product_id, user_data, product_data, n_top=20)
+    return render_template('product.html', 
+                           product=product, 
+                           content_based_recommendations=content_based_rec, 
+                           item_based_recommendations=specific_item_based_rec)
+
 # add to cart
 @app.route("/add_to_cart", methods=['POST'])
 def add_to_cart():
@@ -398,7 +417,7 @@ def add_to_cart():
     else:
         flash('Please log in to add items to your cart.')
         return redirect(url_for('login'))
-
+    
 # cart
 @app.route("/cart")
 def cart():
@@ -409,25 +428,7 @@ def cart():
     else:
         flash('Please log in to view your cart.')
         return redirect(url_for('login'))
-
-# Function to fetch product details
-def fetch_product_by_id(product_id):
-    if product_id in list(product_data['Prod Id']):
-        return product_data[product_data['Prod Id'] == product_id].iloc[0]
-
-# Route to render the product details page
-@app.route('/product/<int:product_id>')
-def product_detail(product_id):
-    # Fetch product details from your data source using the product_id
-    product = fetch_product_by_id(product_id)
-    # Content based recommendations
-    content_based_rec = content_based_recommendations(product_data, product['Product Name'], top_n=20)
-    # Item based collaborative recommendations
-    top_rec, specific_item_based_rec = specific_item_based_recommendation(product_id, user_data, product_data, n_top=20)
-    return render_template('product.html', 
-                           product=product, 
-                           content_based_recommendations=content_based_rec, 
-                           item_based_recommendations=specific_item_based_rec)
+    
 
 # routes
 @app.route("/home")
