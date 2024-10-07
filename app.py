@@ -65,7 +65,8 @@ def content_based_recommendations(train_data, item_name, top_n=10):
     recommended_indices = [i[0] for i in sim_scores[1:top_n+1]]
 
     # Display the details of the recommended products
-    recommended_products = train_data.iloc[recommended_indices][['Product Name', 'Brand', 'Category', 'Sale Price', 'Rating']]
+    recommended_products = train_data.iloc[recommended_indices]
+    recommended_products = recommended_products.sort_values('Rating', ascending=False)
 
     return recommended_products
 
@@ -96,7 +97,7 @@ def collaborative_filtering_recommendations(train_df, target_user_id, top_n=10):
             break
 
     # Step 6: Get recommended items' details
-    recommended_items_details = train_df[train_df['Product Name'].isin(recommended_items)][['Product Name', 'Rating Count', 'Brand', 'Product Url', 'Rating']]
+    recommended_items_details = train_df[train_df['Product Name'].isin(recommended_items)][['Prod Id', 'Product Name', 'Brand', 'Product Url', 'Rating']]
 
     return recommended_items_details.head(top_n)
 
@@ -159,7 +160,8 @@ def item_based_recommendation(user_id, user_data, product_data, n_top=5):
         else:
             pred_rating = 0
         # Save the not-rated product and corresponding predicted rating
-        pred_ratings[prod_nr] = pred_rating
+        if pred_rating > 0:
+            pred_ratings[prod_nr] = pred_rating
 
     recs = sorted(pred_ratings.items(), key=operator.itemgetter(1), reverse=True)[:n_top] # Top recommendations
     recs_prod_ids = []
@@ -171,21 +173,84 @@ def item_based_recommendation(user_id, user_data, product_data, n_top=5):
     
     return df
 
+# Item Based Colleborative Filtering Recommendations For All The Products The
+# Customers Who Purchased a Specific Product Bought.
+def specific_item_based_recommendation(product_id, user_data, product_data, n_top=5):
+    """
+    Get the item-based product recommendations among the other products,
+    which the useres who purchased the selected product bought.
+
+    Args
+        product_id: product id of the selected product
+        user_data: dataframe with user-product ratings
+        product_data: dataframe with product data
+        n_top: number of top recommendations to return
+
+    Return
+        Dataframe with top recommendation product data
+    """
+    import operator
+    
+    # Get the users who bought the product
+    user_ids = user_data[user_data['Prod Id'] == product_id]['User Id']
+    users = user_data[user_data['User Id'].isin(user_ids.values)]
+    
+    # Get mean rating and rating count by each product
+    agg_ratings= users.groupby('Prod Id').agg(mean_rating = ('Rating', 'mean'), number_of_ratings = ('Rating', 'count')).reset_index()
+    # Join each products mean_rating and number_of_ratings with the user data
+    agg_ratings_df = pd.merge(users, agg_ratings, on='Prod Id', how='inner')
+    
+    # User-product matrix
+    matrix = agg_ratings_df.pivot_table(index='Prod Id', columns='User Id', values='Rating')
+    print(user_ids)
+    try:
+        # Cosine similarity matrix
+        item_similarity_cosine = cosine_similarity(matrix.fillna(0))
+        # Create a dataframe for the cosine similarity matrix
+        cosine_df = pd.DataFrame(item_similarity_cosine)
+        cosine_df.columns = matrix.index.values
+        cosine_df.index = matrix.index.values
+    
+        # Get the similairty of selected product with other products the users who
+        # purchased this product bought
+        similarity_with_selected_product = cosine_df[product_id]
+        
+        # Get the similairty of other products
+        similarity_with_selected_product = pd.DataFrame(similarity_with_selected_product.drop(product_id)).reset_index()
+        similarity_with_selected_product = similarity_with_selected_product.rename(columns={'index':'Prod Id', product_id:'Similarity'})
+    
+        weight_matrix = pd.merge(similarity_with_selected_product, agg_ratings[['Prod Id', 'mean_rating']], on='Prod Id', how='inner')
+        weight_matrix['relevance_score'] = weight_matrix['Similarity'] * weight_matrix['mean_rating']
+        weight_matrix = weight_matrix.sort_values('relevance_score', ascending=False).reset_index(drop=True)
+    
+        top_recommendations = weight_matrix[:n_top]
+    
+        # Get the product data for the top recommendations
+        df = product_data[product_data['Prod Id'].isin(top_recommendations['Prod Id'].tolist())].reset_index(drop=True)
+        df = pd.merge(df, top_recommendations[['Prod Id', 'relevance_score']], on='Prod Id', how='inner')
+        df = df.sort_values('relevance_score', ascending=False)
+        df = df.drop('relevance_score', axis=1)
+
+        return top_recommendations, df
+
+    except:
+        return None, None
+
+
 # Hybrid Recommendation
 def hybrid_recommendations(train_data, target_user_id, item_name, top_n=10):
 
     # Getcontent Based recommendations
-    content_based_rec = content_based_recommendations(train_data, item_name, top_n)
-
+    content_based_rec = content_based_recommendations(product_data, item_name, top_n)
     # Get Collaborative filtering recommendations
     collaborative_filtering_rec = collaborative_filtering_recommendations(train_data, target_user_id, top_n)
-
+    #print(f'user based {collaborative_filtering_rec['Prod Id']}')
     # Get Item Basesd filtering recommendations
     item_based_rec = item_based_recommendation(target_user_id, user_data, product_data, top_n)
-
+    #print(f'item {item_based_rec['Prod Id']}')
     # Merge and deduplicate the recommendations
     hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec, item_based_rec]).drop_duplicates()
-
+    #print(hybrid_rec['Prod Id'])
     return hybrid_rec.head(10)
 
 #getting random image urls
@@ -306,6 +371,26 @@ def recommendations():
                                    truncate=truncate, 
                                    random_product_image_urls=random_product_image_urls,
                                    random_price=random.choice(price))
+
+
+# Function to fetch product details
+def fetch_product_by_id(product_id):
+    if product_id in list(product_data['Prod Id']):
+        return product_data[product_data['Prod Id'] == product_id].iloc[0]
+
+# Route to render the product details page
+@app.route('/product/<int:product_id>')
+def product_detail(product_id):
+    # Fetch product details from your data source using the product_id
+    product = fetch_product_by_id(product_id)
+    # Content based recommendations
+    content_based_rec = content_based_recommendations(product_data, product['Product Name'], top_n=20)
+    # Item based collaborative recommendations
+    top_rec, specific_item_based_rec = specific_item_based_recommendation(product_id, user_data, product_data, n_top=20)
+    return render_template('product.html', 
+                           product=product, 
+                           content_based_recommendations=content_based_rec, 
+                           item_based_recommendations=specific_item_based_rec)
 
 
 # routes
