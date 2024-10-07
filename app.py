@@ -73,8 +73,7 @@ def content_based_recommendations(train_data, item_name, top_n=10):
     recommended_indices = [i[0] for i in sim_scores[1:top_n+1]]
 
     # Display the details of the recommended products
-    recommended_products = train_data.iloc[recommended_indices]
-    recommended_products = recommended_products.sort_values('Rating', ascending=False)
+    recommended_products = train_data.iloc[recommended_indices][['Product Name', 'Brand', 'Category', 'Sale Price', 'Rating']]
 
     return recommended_products
 
@@ -105,7 +104,7 @@ def collaborative_filtering_recommendations(train_df, target_user_id, top_n=10):
             break
 
     # Step 6: Get recommended items' details
-    recommended_items_details = train_df[train_df['Product Name'].isin(recommended_items)][['Prod Id', 'Product Name', 'Brand', 'Product Url', 'Rating']]
+    recommended_items_details = train_df[train_df['Product Name'].isin(recommended_items)][['Product Name', 'Brand', 'Product Url', 'Rating']]
 
     return recommended_items_details.head(top_n)
 
@@ -168,8 +167,7 @@ def item_based_recommendation(user_id, user_data, product_data, n_top=5):
         else:
             pred_rating = 0
         # Save the not-rated product and corresponding predicted rating
-        if pred_rating > 0:
-            pred_ratings[prod_nr] = pred_rating
+        pred_ratings[prod_nr] = pred_rating
 
     recs = sorted(pred_ratings.items(), key=operator.itemgetter(1), reverse=True)[:n_top] # Top recommendations
     recs_prod_ids = []
@@ -244,7 +242,6 @@ def specific_item_based_recommendation(product_id, user_data, product_data, n_to
     except:
         return None, None
 
-
 # Hybrid Recommendation
 def hybrid_recommendations(train_data, target_user_id, item_name, top_n=10):
 
@@ -253,16 +250,17 @@ def hybrid_recommendations(train_data, target_user_id, item_name, top_n=10):
         target_user_id = int(target_user_id)  # Convert to int if necessary
 
     # Getcontent Based recommendations
-    content_based_rec = content_based_recommendations(product_data, item_name, top_n)
+    content_based_rec = content_based_recommendations(train_data, item_name, top_n)
+
     # Get Collaborative filtering recommendations
     collaborative_filtering_rec = collaborative_filtering_recommendations(train_data, target_user_id, top_n)
-    #print(f'user based {collaborative_filtering_rec['Prod Id']}')
+
     # Get Item Basesd filtering recommendations
     item_based_rec = item_based_recommendation(target_user_id, user_data, product_data, top_n)
-    #print(f'item {item_based_rec['Prod Id']}')
+
     # Merge and deduplicate the recommendations
     hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec, item_based_rec]).drop_duplicates()
-    #print(hybrid_rec['Prod Id'])
+
     return hybrid_rec.head(10)
 
 #getting random image urls
@@ -431,6 +429,7 @@ def cart():
         flash('Please log in to view your cart.')
         return redirect(url_for('login'))
     
+
 # routes
 @app.route("/home")
 def home():
