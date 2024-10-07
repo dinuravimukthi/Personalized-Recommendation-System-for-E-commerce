@@ -47,8 +47,26 @@ body {
     padding-left: 30px;
 }
 
-/* Remove underline and blue color from product card */
-.text-decoration-none {
-    text-decoration: none;  /* Removes the underline */
-    color: inherit;         /* Makes the text color inherit from parent, preventing blue links */
+/* Styling for product cards */
+.product-card {
+    width: 18rem;
+    height: 100%; /* Make sure all cards have the same height */
+}
+
+/* Styling for product images */
+.product-img {
+    width: 100%;
+    height: 200px;
+    object-fit: contain;
+    background-color: #f8f9fa; 
+}
+
+/* Ensure card content aligns properly */
+.product-card .card-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.product-card .card-body .btn {
+    margin-top: auto; /* Push the button to the bottom of the card */
 }
