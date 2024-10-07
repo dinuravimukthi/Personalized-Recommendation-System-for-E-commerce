@@ -385,6 +385,7 @@ def product_detail(product_id):
     product = fetch_product_by_id(product_id)
     # Content based recommendations
     content_based_rec = content_based_recommendations(product_data, product['Product Name'], top_n=20)
+    # add new comment to merge
     # Item based collaborative recommendations
     top_rec, specific_item_based_rec = specific_item_based_recommendation(product_id, user_data, product_data, n_top=20)
     return render_template('product.html', 
