@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, redirect, session, flash, url_for
+from flask import Flask, request, render_template, redirect, session, flash, url_for, jsonify
 import pandas as pd
 import numpy as np
 import random
@@ -28,6 +28,14 @@ class Users(db.Model):
     email = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(100), nullable=False)
     password = db.Column(db.String(100), nullable=False)
+
+# Define your model class for the 'users_product_data' table
+class User_product_data(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(100), nullable=False)
+    product_id = db.Column(db.String(100), nullable=False)
+    product_name = db.Column(db.String(255), nullable=False)
+    rating = db.Column(db.String(100), nullable=False)
 
 # Recomennded system function
 def truncate(text, length):
@@ -65,8 +73,7 @@ def content_based_recommendations(train_data, item_name, top_n=10):
     recommended_indices = [i[0] for i in sim_scores[1:top_n+1]]
 
     # Display the details of the recommended products
-    recommended_products = train_data.iloc[recommended_indices]
-    recommended_products = recommended_products.sort_values('Rating', ascending=False)
+    recommended_products = train_data.iloc[recommended_indices][['Product Name', 'Brand', 'Category', 'Sale Price', 'Rating']]
 
     return recommended_products
 
@@ -97,7 +104,7 @@ def collaborative_filtering_recommendations(train_df, target_user_id, top_n=10):
             break
 
     # Step 6: Get recommended items' details
-    recommended_items_details = train_df[train_df['Product Name'].isin(recommended_items)][['Prod Id', 'Product Name', 'Brand', 'Product Url', 'Rating']]
+    recommended_items_details = train_df[train_df['Product Name'].isin(recommended_items)][['Product Name', 'Brand', 'Product Url', 'Rating']]
 
     return recommended_items_details.head(top_n)
 
@@ -160,8 +167,7 @@ def item_based_recommendation(user_id, user_data, product_data, n_top=5):
         else:
             pred_rating = 0
         # Save the not-rated product and corresponding predicted rating
-        if pred_rating > 0:
-            pred_ratings[prod_nr] = pred_rating
+        pred_ratings[prod_nr] = pred_rating
 
     recs = sorted(pred_ratings.items(), key=operator.itemgetter(1), reverse=True)[:n_top] # Top recommendations
     recs_prod_ids = []
@@ -236,21 +242,25 @@ def specific_item_based_recommendation(product_id, user_data, product_data, n_to
     except:
         return None, None
 
-
 # Hybrid Recommendation
 def hybrid_recommendations(train_data, target_user_id, item_name, top_n=10):
 
+    # Ensure that target_user_id is being processed as expected
+    if isinstance(target_user_id, str):
+        target_user_id = int(target_user_id)  # Convert to int if necessary
+
     # Getcontent Based recommendations
-    content_based_rec = content_based_recommendations(product_data, item_name, top_n)
+    content_based_rec = content_based_recommendations(train_data, item_name, top_n)
+
     # Get Collaborative filtering recommendations
     collaborative_filtering_rec = collaborative_filtering_recommendations(train_data, target_user_id, top_n)
-    #print(f'user based {collaborative_filtering_rec['Prod Id']}')
+
     # Get Item Basesd filtering recommendations
     item_based_rec = item_based_recommendation(target_user_id, user_data, product_data, top_n)
-    #print(f'item {item_based_rec['Prod Id']}')
+
     # Merge and deduplicate the recommendations
     hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec, item_based_rec]).drop_duplicates()
-    #print(hybrid_rec['Prod Id'])
+
     return hybrid_rec.head(10)
 
 #getting random image urls
@@ -265,8 +275,10 @@ random_image_urls = [
 #routes
 @app.route("/")
 def index():
+    # Get the prices from the List Price column in train_data for the first 5 trending products
+    prices = train_data['List Price'].head(5).tolist()
+    
     random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(trending_products))]
-    price = [40, 50, 60, 70, 100]
     
     # Pass zip function to Jinja2
     return render_template(
@@ -274,7 +286,7 @@ def index():
         trending_products=trending_products.head(5),
         truncate=truncate,
         random_product_image_urls=random_product_image_urls,
-        random_price=[random.choice(price) for _ in range(len(trending_products.head(5)))],
+        random_price=prices,  # Assign prices from train_data
         zip=zip  # Passing zip function
     )
 
@@ -301,7 +313,7 @@ def signup():
         db.session.commit()
 
         random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(trending_products))]
-        price = [40, 50, 60, 70, 100]
+        prices = train_data['List Price'].head(5).tolist()
         
         return render_template(
         'index.html',
@@ -309,36 +321,31 @@ def signup():
         trending_products=trending_products.head(5),
         truncate=truncate,
         random_product_image_urls=random_product_image_urls,
-        random_price=[random.choice(price) for _ in range(len(trending_products.head(5)))],
+        random_price=prices,
         zip=zip # Passing zip function
     )
 
     return render_template('index.html',signup_success="False")
 
 # login model
-@app.route("/login", methods=['POST', 'GET'])
+# Login route
+@app.route("/login", methods=['POST'])
 def login():
-    if request.method == 'POST':
-        # Use get method to avoid KeyError in case of missing fields
-        username = request.form.get('username')
-        password = request.form.get('password')
+    username = request.form.get('username')
+    password = request.form.get('password')
 
-        if not username or not password:
-            flash('Please enter both username and password', 'danger')
-            return redirect(url_for('index'))
+    if not username or not password:
+        return jsonify({'success': False, 'message': 'Please enter both username and password'})
 
-        # Query the database to check if the user exists
-        user = Users.query.filter_by(username=username, password=password).first()
+    # Query the database to check if the user exists
+    user = Users.query.filter_by(username=username, password=password).first()
 
-        if user:
-            session['username'] = user.username
-            session['user_id'] = user.user_id
-            flash('Login successful!', 'success')
-            return redirect(url_for('index'))
-        else:
-            flash('Invalid username or password', 'danger')
-
-    return render_template('index.html')
+    if user:
+        session['username'] = user.username
+        session['user_id'] = user.user_id
+        return jsonify({'success': True, 'message': 'Login successful!'})
+    else:
+        return jsonify({'success': False, 'message': 'No user found, please enter a valid username'})
 
 # logout model
 @app.route('/logout', methods=['POST'])
@@ -348,13 +355,13 @@ def logout():
     flash('You have been logged out successfully.', 'success')
     return redirect(url_for('index'))  
 
-target_user_id = 100162
-
+# Recommendations
 @app.route("/recommendations", methods=['POST', 'GET'])
 def recommendations():
     if request.method == 'POST':
         products = request.form.get('products')
-
+        target_user_id = request.form.get('user_id')
+        
         hybrid_rec = hybrid_recommendations(train_data, target_user_id, products)
 
         if hybrid_rec.empty:
@@ -364,14 +371,44 @@ def recommendations():
         else:
             # Create a list of random image URLs for each recommended product
             random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(hybrid_rec))]
-            price = [40, 50, 60, 70, 100, 122, 106, 50, 30, 50]
+            prices = train_data['List Price'].head(5).tolist()
 
             return render_template('main.html', 
                                    hybrid_rec=hybrid_rec,
                                    truncate=truncate, 
                                    random_product_image_urls=random_product_image_urls,
-                                   random_price=random.choice(price))
+                                   random_price=prices)
+        
+# add to cart
+@app.route("/add_to_cart", methods=['POST'])
+def add_to_cart():
+    if 'user_id' in session:  # Check if the user is logged in
+        user_id = session['user_id']
+        product_id = request.form['product_id']
+        product_name = request.form['product_name']
+        rating = request.form['rating']
 
+        # Create a new Cart entry
+        cart_item = User_product_data(user_id=user_id, product_id=product_id, product_name=product_name, rating=rating)
+        db.session.add(cart_item)
+        db.session.commit()
+
+        flash('Product added to cart!')
+        return redirect(url_for('main'))
+    else:
+        flash('Please log in to add items to your cart.')
+        return redirect(url_for('login'))
+
+# cart
+@app.route("/cart")
+def cart():
+    if 'user_id' in session:
+        user_id = session['user_id']
+        cart_items = User_product_data.query.filter_by(user_id=user_id).all()
+        return render_template('cart.html', cart_items=cart_items)
+    else:
+        flash('Please log in to view your cart.')
+        return redirect(url_for('login'))
 
 # Function to fetch product details
 def fetch_product_by_id(product_id):
@@ -392,23 +429,23 @@ def product_detail(product_id):
                            content_based_recommendations=content_based_rec, 
                            item_based_recommendations=specific_item_based_rec)
 
-
 # routes
 @app.route("/home")
 def home():
     random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(trending_products))]
-    price = [40, 50, 60, 70, 100]
-    
+    prices = train_data['List Price'].head(5).tolist()
+
+  
     # Pass zip function to Jinja2
     return render_template(
         'index.html',
+        signup_success="True",
         trending_products=trending_products.head(5),
         truncate=truncate,
         random_product_image_urls=random_product_image_urls,
-        random_price=[random.choice(price) for _ in range(len(trending_products.head(5)))],
+        random_price=prices,
         zip=zip  # Passing zip function
     )
-
 
 if __name__=='__main__':
     app.run(debug=True)
