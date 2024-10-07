@@ -141,16 +141,20 @@
         <div class="row mt-4">
             {% for index, product in hybrid_rec.iterrows() %}
             <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
-                <div class="card">
-                    <img src="{{ random_product_image_urls[index] }}" class="card-img-top"
-                        alt="{{ product['Product Name'] }}" style="height: 200px;">
-                    <div class="card-body">
-                        <h5 class="card-title">{{ truncate(product['Product Name'], 12) }}</h5>
-                        <p class="card-text">Brand: {{ product['Brand'] }}</p>
-                        <button type="button" class="btn btn-primary" data-toggle="modal"
-                            data-target="#productModal{{ index }}">Buy Now</button>
-                    </div>
+                <div class="none">
+                    {% set product_id = product['Prod Id'] | int %}
+                    <a href="{{ url_for('product_detail', product_id=product_id) }}" class="text-decoration-none">
+                        <div class="card">
+                            <img src="{{ random_product_image_urls[index] }}" class="card-img-top" alt="{{ product['Product Name'] }}" style="height: 200px;">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ truncate(product['Product Name'], 12) }}</h5>
+                                <p class="card-text">Brand: {{ product['Brand'] }}</p>
+                                <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#productModal{{ index }}">Buy Now</button>
+                            </div>
+                        </div>
+                    </a>
                 </div>
+                
             </div>
 
 
