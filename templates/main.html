@@ -14,33 +14,39 @@
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">Formula 1</a>
+            <a class="navbar-brand" href="#">StyleNest</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
                 aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link active" href="home">Home</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="{{ url_for('index') }}">Home</a></li>
                     <li class="nav-item"><a class="nav-link" href="#">Shop</a></li>
                     <li class="nav-item"><a class="nav-link" href="#">About Us</a></li>
                     <li class="nav-item"><a class="nav-link" href="#">Contact</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#">Cart</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('cart') }}">Cart</a></li>
+                    <div class="collapse navbar-collapse" id="navbarNav">
+                        <ul class="navbar-nav ms-auto">
+                            
+                            {% if session.get('username') %}
+                            <div class="dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="dropdownMenuButton" role="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                    Hello, {{ session['username'] }}
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                                    <li><a class="dropdown-item" href="#"
+                                            onclick="document.getElementById('logout-form').submit();">Sign Out</a></li>
+                                </ul>
+                            </div>
+                            {% else %}
+                            <a class="nav-link" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a>
+                            {% endif %}
+                        </ul>
+                    </div>
                 </ul>
             </div>
-            <div class="collapse navbar-collapse" id="navbarNav"></div>
-            <ul class="navbar-nav ms-auto">
-                {% if session['username'] %}
-                <li class="nav-item">
-                    <a class="nav-link" href="#">Hello, {{ session['username'] }}</a>
-                </li>
-                {% else %}
-                <li class="nav-item">
-                    <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a>
-                </li>
-                {% endif %}
-            </ul>
-        </div>
         </div>
     </nav>
 
@@ -53,14 +59,19 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form>
+                    <!-- Error message will be displayed here if login fails -->
+                    <div id="loginError" class="alert alert-danger d-none" role="alert"></div>
+
+                    <form id="loginForm" method="POST">
                         <div class="mb-3">
                             <label for="username" class="form-label">Username</label>
-                            <input type="text" class="form-control" id="username" placeholder="Enter your username">
+                            <input type="text" class="form-control" id="username" name="username"
+                                placeholder="Enter your username" required>
                         </div>
                         <div class="mb-3">
                             <label for="password" class="form-label">Password</label>
-                            <input type="password" class="form-control" id="password" placeholder="Enter your password">
+                            <input type="password" class="form-control" id="password" name="password"
+                                placeholder="Enter your password" required>
                         </div>
                         <button type="submit" class="btn btn-dark w-100">Login</button>
                     </form>
@@ -72,14 +83,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Success Message -->
-    {% if signup_message %}
-    <div class="alert alert-success" role="alert">
-        {{ signup_message }}
-    </div>
-    {% endif %}
-
 
     <!-- Sign Up Modal -->
     <div class="modal fade" id="signupModal" tabindex="-1" aria-labelledby="signupModalLabel" aria-hidden="true">
@@ -123,6 +126,9 @@
         </div>
     </div>
 
+    <!-- Logout Form -->
+    <form id="logout-form" action="/logout" method="POST" style="display: none;"></form>
+
     <!-- Hero Section with Search -->
     <section class="bg-light text-center py-5">
         <h1 class="display-4">Find Your Perfect Product</h1>
@@ -134,59 +140,26 @@
         </form>
     </section>
 
-    <!-- Trending recommendations -->
+    <!-- Recommendations -->
     {% if hybrid_rec is not none and not hybrid_rec.empty %}
     <div class="container mt-5">
         <h2 class="text-center mb-4">Recommended Products</h2>
         <div class="row mt-4">
             {% for index, product in hybrid_rec.iterrows() %}
             <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
-                <div class="none">
-                    {% set product_id = product['Prod Id'] | int %}
-                    <a href="{{ url_for('product_detail', product_id=product_id) }}" class="text-decoration-none">
-                        <div class="card">
-                            <img src="{{ random_product_image_urls[index] }}" class="card-img-top" alt="{{ product['Product Name'] }}" style="height: 200px;">
-                            <div class="card-body">
-                                <h5 class="card-title">{{ truncate(product['Product Name'], 12) }}</h5>
-                                <p class="card-text">Brand: {{ product['Brand'] }}</p>
-                                <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#productModal{{ index }}">Buy Now</button>
-                            </div>
-                        </div>
-                    </a>
-                </div>
-                
-            </div>
-
-
-            <!-- Modal -->
-            <div class="modal fade" id="productModal{{ index }}" tabindex="-1" role="dialog"
-                aria-labelledby="productModalLabel" aria-hidden="true">
-                <div class="modal-dialog" role="document">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="productModalLabel">{{ product['Product Name'] }}</h5>
-                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                <span aria-hidden="true">&times;</span>
-                            </button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <img src="{{ random_product_image_urls[index] }}" class="img-fluid"
-                                        alt="{{ product['Product Name'] }}" style="height: 200px;">
-                                </div>
-                                <div class="col-md-8">
-                                    <p><strong>Brand:</strong> {{ product['Brand'] }}</p>
-                                    <p><strong>Review Count:</strong> {{ product['ReviewCount'] }}</p>
-                                    <p><strong>Rating:</strong> {{ product['Rating'] }}</p>
-                                    <p><strong>Price:</strong> {{ random_price }}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                            <button type="button" class="btn btn-primary">Add to Cart</button>
-                        </div>
+                <div class="card">
+                    
+                    <img src="{{ random_product_image_urls[index] }}" class="card-img-top"
+                        alt="{{ product['Product Name'] }}" style="height: 200px;">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ truncate(product['Product Name'], 12) }}</h5>
+                        <p class="card-text">Brand: {{ product['Brand'] }}</p>
+                        <p class="card-text">Price: ${{ product['List Price'] }}</p>
+                        
+                        <button type="button" class="btn btn-primary add-to-cart"
+                            data-product-id="{{ product['Product ID'] }}"
+                            data-product-name="{{ product['Product Name'] }}" data-rating="{{ product['Rating'] }}">Add
+                            to Cart</button>
                     </div>
                 </div>
             </div>
@@ -195,7 +168,13 @@
     </div>
     {% endif %}
 
-
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <div class="alert alert-info">
+        {{ messages[0] }}
+    </div>
+    {% endif %}
+    {% endwith %}
 
     <!-- Call to Action Section -->
     <section class="bg-dark text-white text-center py-5">
@@ -208,6 +187,37 @@
     <footer class="bg-dark text-white text-center py-3">
         <p>&copy; 2024 Personalized E-commerce. All rights reserved.</p>
     </footer>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('.add-to-cart').click(function () {
+                const productId = $(this).data('product-id');
+                const productName = $(this).data('product-name');
+                const rating = $(this).data('rating');
+
+                $.ajax({
+                    url: '/add_to_cart',
+                    type: 'POST',
+                    data: {
+                        product_id: productId,
+                        product_name: productName,
+                        rating: rating
+                    },
+                    success: function (response) {
+                        if (response.success) {
+                            alert(response.message); 
+                        } else {
+                            alert(response.message); 
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        alert('An error occurred: ' + error);
+                    }
+                });
+            });
+        });
+    </script>
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>

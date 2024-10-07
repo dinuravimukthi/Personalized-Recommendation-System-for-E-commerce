@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, redirect, session, flash, url_for
+from flask import Flask, request, render_template, redirect, session, flash, url_for, jsonify
 import pandas as pd
 import numpy as np
 import random
@@ -28,6 +28,14 @@ class Users(db.Model):
     email = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(100), nullable=False)
     password = db.Column(db.String(100), nullable=False)
+
+# Define your model class for the 'users_product_data' table
+class User_product_data(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(100), nullable=False)
+    product_id = db.Column(db.String(100), nullable=False)
+    product_name = db.Column(db.String(255), nullable=False)
+    rating = db.Column(db.String(100), nullable=False)
 
 # Recomennded system function
 def truncate(text, length):
@@ -240,6 +248,10 @@ def specific_item_based_recommendation(product_id, user_data, product_data, n_to
 # Hybrid Recommendation
 def hybrid_recommendations(train_data, target_user_id, item_name, top_n=10):
 
+    # Ensure that target_user_id is being processed as expected
+    if isinstance(target_user_id, str):
+        target_user_id = int(target_user_id)  # Convert to int if necessary
+
     # Getcontent Based recommendations
     content_based_rec = content_based_recommendations(product_data, item_name, top_n)
     # Get Collaborative filtering recommendations
@@ -265,8 +277,10 @@ random_image_urls = [
 #routes
 @app.route("/")
 def index():
+    # Get the prices from the List Price column in train_data for the first 5 trending products
+    prices = train_data['List Price'].head(5).tolist()
+    
     random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(trending_products))]
-    price = [40, 50, 60, 70, 100]
     
     # Pass zip function to Jinja2
     return render_template(
@@ -274,7 +288,7 @@ def index():
         trending_products=trending_products.head(5),
         truncate=truncate,
         random_product_image_urls=random_product_image_urls,
-        random_price=[random.choice(price) for _ in range(len(trending_products.head(5)))],
+        random_price=prices,  # Assign prices from train_data
         zip=zip  # Passing zip function
     )
 
@@ -301,7 +315,7 @@ def signup():
         db.session.commit()
 
         random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(trending_products))]
-        price = [40, 50, 60, 70, 100]
+        prices = train_data['List Price'].head(5).tolist()
         
         return render_template(
         'index.html',
@@ -309,36 +323,31 @@ def signup():
         trending_products=trending_products.head(5),
         truncate=truncate,
         random_product_image_urls=random_product_image_urls,
-        random_price=[random.choice(price) for _ in range(len(trending_products.head(5)))],
+        random_price=prices,
         zip=zip # Passing zip function
     )
 
     return render_template('index.html',signup_success="False")
 
 # login model
-@app.route("/login", methods=['POST', 'GET'])
+# Login route
+@app.route("/login", methods=['POST'])
 def login():
-    if request.method == 'POST':
-        # Use get method to avoid KeyError in case of missing fields
-        username = request.form.get('username')
-        password = request.form.get('password')
+    username = request.form.get('username')
+    password = request.form.get('password')
 
-        if not username or not password:
-            flash('Please enter both username and password', 'danger')
-            return redirect(url_for('index'))
+    if not username or not password:
+        return jsonify({'success': False, 'message': 'Please enter both username and password'})
 
-        # Query the database to check if the user exists
-        user = Users.query.filter_by(username=username, password=password).first()
+    # Query the database to check if the user exists
+    user = Users.query.filter_by(username=username, password=password).first()
 
-        if user:
-            session['username'] = user.username
-            session['user_id'] = user.user_id
-            flash('Login successful!', 'success')
-            return redirect(url_for('index'))
-        else:
-            flash('Invalid username or password', 'danger')
-
-    return render_template('index.html')
+    if user:
+        session['username'] = user.username
+        session['user_id'] = user.user_id
+        return jsonify({'success': True, 'message': 'Login successful!'})
+    else:
+        return jsonify({'success': False, 'message': 'No user found, please enter a valid username'})
 
 # logout model
 @app.route('/logout', methods=['POST'])
@@ -348,13 +357,13 @@ def logout():
     flash('You have been logged out successfully.', 'success')
     return redirect(url_for('index'))  
 
-target_user_id = 100162
-
+# Recommendations
 @app.route("/recommendations", methods=['POST', 'GET'])
 def recommendations():
     if request.method == 'POST':
         products = request.form.get('products')
-
+        target_user_id = request.form.get('user_id')
+        
         hybrid_rec = hybrid_recommendations(train_data, target_user_id, products)
 
         if hybrid_rec.empty:
@@ -364,15 +373,14 @@ def recommendations():
         else:
             # Create a list of random image URLs for each recommended product
             random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(hybrid_rec))]
-            price = [40, 50, 60, 70, 100, 122, 106, 50, 30, 50]
+            prices = train_data['List Price'].head(5).tolist()
 
             return render_template('main.html', 
                                    hybrid_rec=hybrid_rec,
                                    truncate=truncate, 
                                    random_product_image_urls=random_product_image_urls,
-                                   random_price=random.choice(price))
-
-
+                                   random_price=prices)
+        
 # Function to fetch product details
 def fetch_product_by_id(product_id):
     if product_id in list(product_data['Prod Id']):
@@ -392,23 +400,54 @@ def product_detail(product_id):
                            content_based_recommendations=content_based_rec, 
                            item_based_recommendations=specific_item_based_rec)
 
+# add to cart
+@app.route("/add_to_cart", methods=['POST'])
+def add_to_cart():
+    if 'user_id' in session:  # Check if the user is logged in
+        user_id = session['user_id']
+        product_id = request.form['product_id']
+        product_name = request.form['product_name']
+        rating = request.form['rating']
 
+        # Create a new Cart entry
+        cart_item = User_product_data(user_id=user_id, product_id=product_id, product_name=product_name, rating=rating)
+        db.session.add(cart_item)
+        db.session.commit()
+
+        flash('Product added to cart!')
+        return redirect(url_for('main'))
+    else:
+        flash('Please log in to add items to your cart.')
+        return redirect(url_for('login'))
+    
+# cart
+@app.route("/cart")
+def cart():
+    if 'user_id' in session:
+        user_id = session['user_id']
+        cart_items = User_product_data.query.filter_by(user_id=user_id).all()
+        return render_template('cart.html', cart_items=cart_items)
+    else:
+        flash('Please log in to view your cart.')
+        return redirect(url_for('login'))
+    
 # routes
 @app.route("/home")
 def home():
     random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(trending_products))]
-    price = [40, 50, 60, 70, 100]
-    
+    prices = train_data['List Price'].head(5).tolist()
+
+  
     # Pass zip function to Jinja2
     return render_template(
         'index.html',
+        signup_success="True",
         trending_products=trending_products.head(5),
         truncate=truncate,
         random_product_image_urls=random_product_image_urls,
-        random_price=[random.choice(price) for _ in range(len(trending_products.head(5)))],
+        random_price=prices,
         zip=zip  # Passing zip function
     )
-
 
 if __name__=='__main__':
     app.run(debug=True)
