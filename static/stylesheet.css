@@ -70,3 +70,9 @@ body {
 .product-card .card-body .btn {
     margin-top: auto; /* Push the button to the bottom of the card */
 }
+
+/* Remove underline and blue color from product card */
+.text-decoration-none {
+    text-decoration: none;  /* Removes the underline */
+    color: inherit;         /* Makes the text color inherit from parent, preventing blue links */
+}

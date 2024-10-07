@@ -25,27 +25,26 @@
                     <li class="nav-item"><a class="nav-link" href="#">Shop</a></li>
                     <li class="nav-item"><a class="nav-link" href="#">About Us</a></li>
                     <li class="nav-item"><a class="nav-link" href="#">Contact</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#">Cart</a></li>
-                </ul>
-            </div>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <!-- Example of conditional rendering -->
-                    {% if session.get('username') %}
-                    <div class="dropdown">
-                        <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton"
-                            data-bs-toggle="dropdown" aria-expanded="false">
-                            Hello, {{ session['username'] }}
-                        </button>
-                        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                            <li><a class="dropdown-item" href="#"
-                                    onclick="document.getElementById('logout-form').submit();">Sign Out</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('cart') }}">Cart</a></li>
+                    <div class="collapse navbar-collapse" id="navbarNav">
+                        <ul class="navbar-nav ms-auto">
+
+                            {% if session.get('username') %}
+                            <div class="dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="dropdownMenuButton" role="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                    Hello, {{ session['username'] }}
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                                    <li><a class="dropdown-item" href="#"
+                                            onclick="document.getElementById('logout-form').submit();">Sign Out</a></li>
+                                </ul>
+                            </div>
+                            {% else %}
+                            <a class="nav-link" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a>
+                            {% endif %}
                         </ul>
                     </div>
-                    {% else %}
-                    <a class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a>
-                    {% endif %}
-
                 </ul>
             </div>
         </div>
@@ -183,7 +182,8 @@
             <div class="content-rec-scroll"
                 style="display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden; height: 100%; scroll-behavior: smooth; scrollbar-width: none;">
                 {% for index, product in content_based_recommendations.iterrows() %}
-                <a href="{{ url_for('product_detail', product_id=product['Prod Id']) }}" style="text-decoration: none; color: inherit;">
+                <a href="{{ url_for('product_detail', product_id=product['Prod Id']) }}"
+                    style="text-decoration: none; color: inherit;">
                     <div class="content-rec-card"
                         style="display: flex; flex-direction: column; max-width: 400px; height: 100%; margin-right: 15px;">
                         <img src="/static/images/no image.avif" class="content-rec-card-img"
@@ -223,7 +223,8 @@
                 style="display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden; height: 100%; scroll-behavior: smooth; scrollbar-width: none;">
                 {% if item_based_recommendations is not none%}
                 {% for index, product in item_based_recommendations.iterrows() %}
-                <a href="{{ url_for('product_detail', product_id=product['Prod Id']) }}" style="text-decoration: none; color: inherit;">
+                <a href="{{ url_for('product_detail', product_id=product['Prod Id']) }}"
+                    style="text-decoration: none; color: inherit;">
                     <div class="item-based-rec-card"
                         style="display: flex; flex-direction: column; max-width: 400px; height: 100%; margin-right: 15px;">
                         <img src="/static/images/no image.avif" class="content-rec-card-img"
