@@ -35,6 +35,7 @@ class User_product_data(db.Model):
     user_id = db.Column(db.String(100), nullable=False)
     product_id = db.Column(db.String(100), nullable=False)
     product_name = db.Column(db.String(255), nullable=False)
+    price = db.Column(db.String(100), nullable=False)
     rating = db.Column(db.String(100), nullable=False)
 
 # Recomennded system function
@@ -44,6 +45,33 @@ def truncate(text, length):
     else:
         return text
 
+# Trending Funtion
+def get_trending_products(train_data, top_n=10):
+    """
+    Calculate the trending products based on Rating and Rating Count.
+
+    Parameters:
+    train_data (pd.DataFrame): DataFrame containing product data with Rating and Rating Count.
+    top_n (int): Number of top trending products to return.
+
+    Returns:
+    pd.DataFrame: DataFrame containing the top trending products.
+    """
+    # Ensure the Rating and Rating Count columns are numeric
+    train_data['Rating'] = pd.to_numeric(train_data['Rating'], errors='coerce')
+    train_data['Rating Count'] = pd.to_numeric(train_data['Rating Count'], errors='coerce')
+
+    # Calculate a trending score
+    train_data['Trending Score'] = train_data['Rating'] * train_data['Rating Count']
+
+    # Sort the products based on the Trending Score in descending order
+    trending_products = train_data.sort_values(by='Trending Score', ascending=False)
+
+    # Get the top N trending products
+    trending_products_top_n = trending_products.head(top_n)
+
+    #return trending_products_top_n[['Product Name', 'Rating', 'Rating Count', 'Trending Score']]
+    return trending_products_top_n
 
 # Content Based Recommendation 
 def content_based_recommendations(train_data, item_name, top_n=10):
@@ -79,7 +107,7 @@ def content_based_recommendations(train_data, item_name, top_n=10):
     return recommended_products
 
 # Collaborative Filtering Recommendation
-def collaborative_filtering_recommendations(train_df, target_user_id, top_n=10):
+def collaborative_filtering_recommendations(train_df, product_df, target_user_id, top_n=10):
 
     # Step 1: Create the user-item matrix
     user_item_matrix = train_df.pivot_table(index='User Id', columns='Product Name', values='Rating', aggfunc='mean').fillna(0)
@@ -105,8 +133,9 @@ def collaborative_filtering_recommendations(train_df, target_user_id, top_n=10):
             break
 
     # Step 6: Get recommended items' details
-    recommended_items_details = train_df[train_df['Product Name'].isin(recommended_items)][['Product Name', 'Brand', 'Product Url', 'Rating']]
-
+    recommended_items_details = product_df[product_df['Product Name'].isin(recommended_items)]
+    recommended_items_details = recommended_items_details.sort_values('Rating', ascending=False)
+    
     return recommended_items_details.head(top_n)
 
 # Item Based Collaborative Filtering Recommendation
@@ -165,20 +194,21 @@ def item_based_recommendation(user_id, user_data, product_data, n_top=5):
         rating_arr = prod_nr_and_r_similarity['Rating']
         if sum(weights) > 0:
             pred_rating = round(np.average(rating_arr, weights=weights), 5)
-        else:
-            pred_rating = 0
-        # Save the not-rated product and corresponding predicted rating
-        pred_ratings[prod_nr] = pred_rating
+            # Save the not-rated product and corresponding predicted rating
+            pred_ratings[prod_nr] = pred_rating
 
-    recs = sorted(pred_ratings.items(), key=operator.itemgetter(1), reverse=True)[:n_top] # Top recommendations
-    recs_prod_ids = []
-    for idx, val in enumerate(recs):
-        recs_prod_ids.append(recs[idx][0])
+    if len(pred_ratings) > 0:
+        recs = sorted(pred_ratings.items(), key=operator.itemgetter(1), reverse=True)[:n_top] # Top recommendations
+        recs_prod_ids = []
+        for idx, val in enumerate(recs):
+            recs_prod_ids.append(recs[idx][0])
+            
+        # Create the output dataframe
+        df = product_data[product_data['Prod Id'].isin(recs_prod_ids)].reset_index(drop=True)
         
-    # Create the output dataframe
-    df = product_data[product_data['Prod Id'].isin(recs_prod_ids)].reset_index(drop=True)
-    
-    return df
+        return df
+    else:
+        return None
 
 # Item Based Colleborative Filtering Recommendations For All The Products The
 # Customers Who Purchased a Specific Product Bought.
@@ -244,6 +274,7 @@ def specific_item_based_recommendation(product_id, user_data, product_data, n_to
         return None, None
 
 # Hybrid Recommendation
+# Hybrid Recommendation
 def hybrid_recommendations(train_data, target_user_id, item_name, top_n=10):
 
     # Ensure that target_user_id is being processed as expected
@@ -251,18 +282,40 @@ def hybrid_recommendations(train_data, target_user_id, item_name, top_n=10):
         target_user_id = int(target_user_id)  # Convert to int if necessary
 
     # Getcontent Based recommendations
-    content_based_rec = content_based_recommendations(train_data, item_name, top_n)
+    content_based_rec = content_based_recommendations(product_data, item_name, top_n)
 
     # Get Collaborative filtering recommendations
-    collaborative_filtering_rec = collaborative_filtering_recommendations(train_data, target_user_id, top_n)
+    collaborative_filtering_rec = collaborative_filtering_recommendations(train_data, product_data, target_user_id, top_n)
 
     # Get Item Basesd filtering recommendations
     item_based_rec = item_based_recommendation(target_user_id, user_data, product_data, top_n)
 
     # Merge and deduplicate the recommendations
-    hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec, item_based_rec]).drop_duplicates()
-
+    if item_based_rec is not None:
+        hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec, item_based_rec]).drop_duplicates(subset=['Prod Id'])
+    else:
+        hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec]).drop_duplicates(subset=['Prod Id'])
+    
+    hybrid_rec = hybrid_rec.sort_values('Rating', ascending=False)
+    
     return hybrid_rec.head(10)
+
+# Function to calculate average CG
+def calculate_avg_cg(relevance_scores):
+    return np.sum(relevance_scores) / (5 * len(relevance_scores))
+
+# Function to calculate DCG
+def calculate_dcg(relevance_scores):
+    return np.sum([rel / np.log2(idx + 2) for idx, rel in enumerate(relevance_scores)])
+
+# Function to calculate NDCG
+def calculage_ndcg(relevance_scores):
+    # Calculate DCG
+    dcg_value = calculate_dcg(relevance_scores)
+    # Calculate IDCG
+    relevance_scores.sort(reverse=True)
+    idcg_value = calculate_dcg(relevance_scores)
+    return dcg_value / idcg_value if idcg_value != 0 else 0
 
 #getting random image urls
 random_image_urls = [
@@ -273,21 +326,27 @@ random_image_urls = [
     "static/images/img_5.jpg",
 ]
 
-#routes
 @app.route("/")
 def index():
-    # Get the prices from the List Price column in train_data for the first 5 trending products
-    prices = train_data['List Price'].head(5).tolist()
+    # Get the top 5 trending products
+    trending_products = get_trending_products(product_data, top_n=5)
+
+    # Create a DataFrame with the trending products and their prices
+    trending_prices = product_data.loc[product_data['Product Name'].isin(trending_products['Product Name']), ['Product Name','List Price']]
     
+    # Convert to a dictionary for easier access in the template
+    price_dict = trending_prices.set_index('Product Name')['List Price'].to_dict()
+
+    # Generate random product image URLs for each trending product
     random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(trending_products))]
-    
+
     # Pass zip function to Jinja2
     return render_template(
         'index.html',
-        trending_products=trending_products.head(5),
+        trending_products=trending_products,
         truncate=truncate,
         random_product_image_urls=random_product_image_urls,
-        random_price=prices,  # Assign prices from train_data
+        price_dict=price_dict,  # Pass the dictionary of prices
         zip=zip  # Passing zip function
     )
 
@@ -388,9 +447,10 @@ def add_to_cart():
         product_id = request.form['product_id']
         product_name = request.form['product_name']
         rating = request.form['rating']
+        price = request.form['price']
 
         # Create a new Cart entry
-        cart_item = User_product_data(user_id=user_id, product_id=product_id, product_name=product_name, rating=rating)
+        cart_item = User_product_data(user_id=user_id, product_id=product_id, product_name=product_name, rating=rating, price=price)
         db.session.add(cart_item)
         db.session.commit()
 
@@ -412,6 +472,26 @@ def cart():
     else:
         flash('Please log in to view your cart.')
         return redirect(url_for('login'))
+
+# remove item from cart 
+@app.route("/remove_from_cart", methods=['POST'])
+def remove_from_cart():
+    if 'user_id' in session:  # Check if the user is logged in
+        user_id = session['user_id']
+        product_id = request.form['product_id']  # Get product_id from the form
+
+        # Find the cart item by user_id and product_id
+        cart_item = User_product_data.query.filter_by(user_id=user_id, product_id=product_id).first()
+
+        if cart_item:
+            db.session.delete(cart_item)
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Product removed from cart.'})
+        else:
+            return jsonify({'success': False, 'message': 'Product not found in cart.'})
+    else:
+        return jsonify({'success': False, 'message': 'Please log in to manage your cart.'})
+
 
 # Function to fetch product details
 def fetch_product_by_id(product_id):
@@ -438,7 +518,6 @@ def home():
     random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(trending_products))]
     prices = train_data['List Price'].head(5).tolist()
 
-  
     # Pass zip function to Jinja2
     return render_template(
         'index.html',

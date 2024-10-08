@@ -14,7 +14,7 @@
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">StyleNest</a>
+            <a class="navbar-brand" href="{{ url_for('index') }}">StyleNest</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
                 aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
@@ -28,7 +28,7 @@
                     <li class="nav-item"><a class="nav-link" href="{{ url_for('cart') }}">Cart</a></li>
                     <div class="collapse navbar-collapse" id="navbarNav">
                         <ul class="navbar-nav ms-auto">
-                            
+
                             {% if session.get('username') %}
                             <div class="dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="dropdownMenuButton" role="button"
@@ -151,21 +151,22 @@
                     {% set product_id = product['Prod Id'] | int %}
                     <a href="{{ url_for('product_detail', product_id=product_id) }}" class="text-decoration-none">
                         <div class="card">
-                            <img src="/static/images/no image.avif" class="card-img-top" alt="{{ product['Product Name'] }}" style="height: 200px;">
+                            <img src="/static/images/no image.avif" class="card-img-top"
+                                alt="{{ product['Product Name'] }}" style="height: 200px;">
                             <div class="card-body">
                                 <h5 class="card-title">{{ truncate(product['Product Name'], 12) }}</h5>
                                 <p class="card-text">Brand: {{ product['Brand'] }}</p>
+                                <p class="card-text">Price: ${{ product['List Price'] }}</p> <!-- Display the price -->
                                 <button type="button" class="btn btn-primary add-to-cart"
-                            data-product-id="{{ product['Product ID'] }}"
-                            data-product-name="{{ product['Product Name'] }}" data-rating="{{ product['Rating'] }}">Add
-                            to Cart</button>
+                                    data-product-id="{{ product['Prod Id'] }}"
+                                    data-product-name="{{ product['Product Name'] }}"
+                                    data-rating="{{ product['Rating'] }}" data-price="{{ product['List Price'] }}">Add
+                                    to Cart</button>
                             </div>
                         </div>
                     </a>
                 </div>
-                
             </div>
-
 
             <!-- Modal -->
             <div class="modal fade" id="productModal{{ index }}" tabindex="-1" role="dialog"
@@ -231,14 +232,16 @@
                 const productId = $(this).data('product-id');
                 const productName = $(this).data('product-name');
                 const rating = $(this).data('rating');
-
+                const price = $(this).data('price'); 
+    
                 $.ajax({
                     url: '/add_to_cart',
                     type: 'POST',
                     data: {
                         product_id: productId,
                         product_name: productName,
-                        rating: rating
+                        rating: rating,
+                        price: price  
                     },
                     success: function (response) {
                         if (response.success) {
@@ -253,7 +256,7 @@
                 });
             });
         });
-    </script>
+    </script>    
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>

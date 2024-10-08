@@ -8,39 +8,45 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="static/stylesheet.css">
     <style>
-        
-        html, body {
-            height: 100%; 
-            margin: 0; 
-        }
+        html,
         body {
-            display: flex; 
-            flex-direction: column; 
-            background-color: #f8f9fa; 
+            height: 100%;
+            margin: 0;
         }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            background-color: #f8f9fa;
+        }
+
         h2 {
             margin-top: 2rem;
             margin-bottom: 1.5rem;
             text-align: center;
         }
+
         .table {
-            background-color: #fff; 
-            border-radius: 0.5rem; 
-            overflow: hidden; 
+            background-color: #fff;
+            border-radius: 0.5rem;
+            overflow: hidden;
         }
+
         .table th {
-            background-color: #007bff; 
-            color: white; 
+            background-color: #007bff;
+            color: white;
         }
+
         .table td {
-            vertical-align: middle; 
+            vertical-align: middle;
         }
+
         footer {
-            background-color: #343a40; 
-            color: white; 
-            text-align: center; 
-            padding: 1rem; 
-            margin-top: auto; 
+            background-color: #343a40;
+            color: white;
+            text-align: center;
+            padding: 1rem;
+            margin-top: auto;
         }
     </style>
 </head>
@@ -49,7 +55,7 @@
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">StyleNest</a>
+            <a class="navbar-brand" href="{{ url_for('index') }}">StyleNest</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
                 aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
@@ -62,7 +68,7 @@
                     <li class="nav-item"><a class="nav-link" href="#">Contact</a></li>
                     <li class="nav-item"><a class="nav-link" href="#">Cart</a></li>
                     <li class="nav-item dropdown">
-                        
+
                         {% if session.get('username') %}
                         <a class="nav-link dropdown-toggle" href="#" id="dropdownMenuButton" role="button"
                             data-bs-toggle="dropdown" aria-expanded="false">
@@ -98,7 +104,8 @@
                     <td>{{ item.product_name }}</td>
                     <td>${{ item.price }}</td>
                     <td>
-                        <button class="btn btn-danger btn-sm">Remove</button>
+                        <button class="btn btn-danger btn-sm remove-from-cart"
+                            data-product-id="{{ item.product_id }}">Remove</button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -110,6 +117,61 @@
     <footer>
         <p>&copy; 2024 Personalized E-commerce. All rights reserved.</p>
     </footer>
+
+    <script>
+        $(document).ready(function () {
+            $('.remove-from-cart').click(function () {
+                const product_id = $(this).data('product-id');
+                console.log("Removing item with ID:", product_id);  // Log the item ID
+
+                $.ajax({
+                    url: '/remove_from_cart',  // URL for the remove route
+                    type: 'POST',
+                    data: { 'product_id': itemId },
+                    success: function (response) {
+                        if (response.success) {
+                            console.log(response.message);  // Log the success message
+                            location.reload();  // Reload the page to update the cart
+                        } else {
+                            alert(response.message);
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        alert('An error occurred: ' + error);
+                    }
+                });
+            });
+        });
+    </script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            // Remove from cart
+            $('.remove-from-cart').click(function () {
+                const productId = $(this).data('product-id');
+
+                $.ajax({
+                    url: '/remove_from_cart',
+                    type: 'POST',
+                    data: {
+                        product_id: productId
+                    },
+                    success: function (response) {
+                        if (response.success) {
+                            alert(response.message);
+                            // Optionally, refresh the page or remove the row from the table without refresh
+                            location.reload(); // Refreshes the page
+                        } else {
+                            alert(response.message);
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        alert('An error occurred: ' + error);
+                    }
+                });
+            });
+        });
+    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 </body>

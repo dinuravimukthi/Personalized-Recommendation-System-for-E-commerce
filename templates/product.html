@@ -14,7 +14,7 @@
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">StyleNest</a>
+            <a class="navbar-brand" href="{{ url_for('index') }}">StyleNest</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
                 aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
@@ -167,7 +167,11 @@
             </p>
             <p><strong>Rating:</strong> {{ product['Rating'] }}</p>
             <p><strong>Review Count:</strong> {{ product['Rating Count'] }}</p>
-            <a href="#" class="btn btn-primary">Add to Cart</a>
+            <button type="button" class="btn btn-primary add-to-cart"
+                                    data-product-id="{{ product['Prod Id'] }}"
+                                    data-product-name="{{ product['Product Name'] }}"
+                                    data-rating="{{ product['Rating'] }}" data-price="{{ product['List Price'] }}">Add
+                                    to Cart</button>
         </div>
     </div>
 
@@ -281,6 +285,38 @@
             toast.show();
         }
     </script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('.add-to-cart').click(function () {
+                const productId = $(this).data('product-id');
+                const productName = $(this).data('product-name');
+                const rating = $(this).data('rating');
+                const price = $(this).data('price'); 
+    
+                $.ajax({
+                    url: '/add_to_cart',
+                    type: 'POST',
+                    data: {
+                        product_id: productId,
+                        product_name: productName,
+                        rating: rating,
+                        price: price  
+                    },
+                    success: function (response) {
+                        if (response.success) {
+                            alert(response.message); 
+                        } else {
+                            alert(response.message); 
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        alert('An error occurred: ' + error);
+                    }
+                });
+            });
+        });
+    </script>   
 </body>
 
 
