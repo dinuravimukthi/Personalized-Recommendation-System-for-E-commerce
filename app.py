@@ -11,8 +11,8 @@ app = Flask(__name__)
 # load files
 trending_products = pd.read_csv("models/trending_product.csv")
 train_data = pd.read_csv("models/product_and_user_data.csv")
-user_data = pd.read_csv('models/product_and_user_data.csv')
-product_data = pd.read_csv('models/product_data.csv')
+user_data_df = pd.read_csv('models/product_and_user_data.csv')
+product_data_df = pd.read_csv('models/product_data.csv')
 
 # Database configuration
 app.secret_key = "12345678"
@@ -37,6 +37,24 @@ class User_product_data(db.Model):
     product_name = db.Column(db.String(255), nullable=False)
     price = db.Column(db.String(100), nullable=False)
     rating = db.Column(db.String(100), nullable=False)
+
+# Define the model for 'product_data' table
+class Product_data(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    prod_id = db.Column(db.String(10), nullable=True)
+    product_url = db.Column(db.String(200), nullable=True)
+    product_name = db.Column(db.String(200), nullable=True)
+    description = db.Column(db.String(5000), nullable=True)
+    filtered_description = db.Column(db.String(5000), nullable=True)
+    list_price = db.Column(db.String(10), nullable=True)
+    sale_price = db.Column(db.String(10), nullable=True)
+    brand = db.Column(db.String(100), nullable=True)
+    category = db.Column(db.String(300), nullable=True)
+    filtered_category = db.Column(db.String(300), nullable=True)
+    rating = db.Column(db.String(10), nullable=True)
+    rating_count = db.Column(db.String(100), nullable=True)
+    available = db.Column(db.String(10), nullable=True)
+    tags = db.Column(db.String(2000), nullable=True)
 
 # Recomennded system function
 def truncate(text, length):
@@ -239,7 +257,7 @@ def specific_item_based_recommendation(product_id, user_data, product_data, n_to
     
     # User-product matrix
     matrix = agg_ratings_df.pivot_table(index='Prod Id', columns='User Id', values='Rating')
-    print(user_ids)
+
     try:
         # Cosine similarity matrix
         item_similarity_cosine = cosine_similarity(matrix.fillna(0))
@@ -275,7 +293,7 @@ def specific_item_based_recommendation(product_id, user_data, product_data, n_to
 
 # Hybrid Recommendation
 # Hybrid Recommendation
-def hybrid_recommendations(train_data, target_user_id, item_name, top_n=10):
+def hybrid_recommendations(user_data, product_data, target_user_id, item_name, top_n=10):
 
     # Ensure that target_user_id is being processed as expected
     if isinstance(target_user_id, str):
@@ -285,7 +303,7 @@ def hybrid_recommendations(train_data, target_user_id, item_name, top_n=10):
     content_based_rec = content_based_recommendations(product_data, item_name, top_n)
 
     # Get Collaborative filtering recommendations
-    collaborative_filtering_rec = collaborative_filtering_recommendations(train_data, product_data, target_user_id, top_n)
+    collaborative_filtering_rec = collaborative_filtering_recommendations(user_data, product_data, target_user_id, top_n)
 
     # Get Item Basesd filtering recommendations
     item_based_rec = item_based_recommendation(target_user_id, user_data, product_data, top_n)
@@ -297,7 +315,7 @@ def hybrid_recommendations(train_data, target_user_id, item_name, top_n=10):
         hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec]).drop_duplicates(subset=['Prod Id'])
     
     hybrid_rec = hybrid_rec.sort_values('Rating', ascending=False)
-    
+    print(hybrid_rec['Product Name'])
     return hybrid_rec.head(10)
 
 # Function to calculate average CG
@@ -329,6 +347,8 @@ random_image_urls = [
 @app.route("/")
 def index():
     # Get the top 5 trending products
+    product_data = get_product_data()
+
     trending_products = get_trending_products(product_data, top_n=5)
 
     # Create a DataFrame with the trending products and their prices
@@ -359,6 +379,8 @@ def main():
 @app.route("/signup", methods=['POST', 'GET'])
 def signup():
     if request.method == 'POST':
+        user_data = get_user_and_product_data()
+
         username = request.form['username']
         email = request.form['email']
         phone = request.form['phone']
@@ -421,8 +443,10 @@ def recommendations():
     if request.method == 'POST':
         products = request.form.get('products')
         target_user_id = request.form.get('user_id')
+        product_data = get_product_data()
+        user_data = get_user_and_product_data()
         
-        hybrid_rec = hybrid_recommendations(train_data, target_user_id, products)
+        hybrid_rec = hybrid_recommendations(user_data, product_data, target_user_id, products)
 
         if hybrid_rec.empty:
             message = "No recommendations available for this product."
@@ -492,9 +516,57 @@ def remove_from_cart():
     else:
         return jsonify({'success': False, 'message': 'Please log in to manage your cart.'})
 
+# Get product details form the database
+def get_product_data():
+    try:
+        product_data = Product_data.query.all()
+        data_list = []
+        for data in product_data:
+            data_list.append({
+                'Prod Id': int(data.prod_id),
+                'Product Url': data.product_url,
+                'Product Name': data.product_name,
+                'Description': data.description,
+                'Filtered Description': data.filtered_description,
+                'List Price': float(data.list_price),
+                'Sale Price': float(data.sale_price),
+                'Brand': data.brand,
+                'Category': data.category,
+                'Filtered Category': data.filtered_category,
+                'Available': bool(data.available),
+                'Rating': float(data.rating),
+                'Rating Count': float(data.rating_count),
+                'Tags': data.tags,
+            })
+        df = pd.DataFrame(data_list)
+        return df
+    
+    except Exception as e:
+        return {'error': str(e)}
+    
+# Get user and product details from the database
+def get_user_and_product_data():
+    try:
+        user_product_data = User_product_data.query.all()
+        # Convert the query result into a list of dictionaries
+        data_list = []
+        for data in user_product_data:
+            data_list.append({
+                'User Id': int(data.user_id),
+                'Prod Id': int(data.product_id),
+                'Product Name': data.product_name,
+                'List Price': float(data.price),
+                'Rating': float(data.rating)
+            })
+        df = pd.DataFrame(data_list)
+        return df
+    
+    except Exception as e:
+        return {'error': str(e)}
+
 
 # Function to fetch product details
-def fetch_product_by_id(product_id):
+def fetch_product_by_id(product_id, product_data):
     if product_id in list(product_data['Prod Id']):
         return product_data[product_data['Prod Id'] == product_id].iloc[0]
 
@@ -502,7 +574,11 @@ def fetch_product_by_id(product_id):
 @app.route('/product/<int:product_id>')
 def product_detail(product_id):
     # Fetch product details from your data source using the product_id
-    product = fetch_product_by_id(product_id)
+    user_data = get_user_and_product_data()
+    product_data = get_product_data()
+    print(product_data[['Prod Id', 'Product Name', 'Rating', 'Rating Count']])
+    product = fetch_product_by_id(product_id, product_data)
+
     # Content based recommendations
     content_based_rec = content_based_recommendations(product_data, product['Product Name'], top_n=20)
     # Item based collaborative recommendations
