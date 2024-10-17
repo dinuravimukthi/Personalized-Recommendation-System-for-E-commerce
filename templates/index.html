@@ -152,12 +152,16 @@
     <!-- Hero Section with Search -->
     <section class="bg-light text-center py-5">
         <h1 class="display-4">Find Your Perfect Product</h1>
-        <form class="d-flex justify-content-center mt-4" action="/recommendations" method="post">
+        {% if 'user_id' in session %}
+        <form class="d-flex justify-content-center mt-4" action="recommendations" method="post">
             <input class="form-control me-2 w-50" type="search" placeholder="Search for products..." aria-label="Search"
-                name="products" required>
+                name="products">
             <input type="hidden" name="user_id" value="{{ session['user_id'] }}">
-            <button class="btn btn-dark" type="submit">Search</button>
+            <button class="btn btn-dark">Search</button>
         </form>
+        {% else %}
+        <button class="btn btn-dark mt-4" data-bs-toggle="modal" data-bs-target="#loginModal">Log in to Search</button>
+        {% endif %}
     </section>
 
 

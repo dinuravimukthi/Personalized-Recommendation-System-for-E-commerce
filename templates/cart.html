@@ -95,6 +95,7 @@
                 <tr>
                     <th>Product Name</th>
                     <th>Price</th>
+                    <th>Rating</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -103,6 +104,7 @@
                 <tr>
                     <td>{{ item.product_name }}</td>
                     <td>${{ item.price }}</td>
+                    <td>{{ item.rating }}</td>
                     <td>
                         <button class="btn btn-danger btn-sm remove-from-cart"
                             data-product-id="{{ item.product_id }}">Remove</button>

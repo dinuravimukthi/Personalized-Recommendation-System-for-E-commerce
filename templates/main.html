@@ -132,12 +132,16 @@
     <!-- Hero Section with Search -->
     <section class="bg-light text-center py-5">
         <h1 class="display-4">Find Your Perfect Product</h1>
+        {% if 'user_id' in session %}
         <form class="d-flex justify-content-center mt-4" action="recommendations" method="post">
             <input class="form-control me-2 w-50" type="search" placeholder="Search for products..." aria-label="Search"
                 name="products">
             <input type="hidden" name="user_id" value="{{ session['user_id'] }}">
             <button class="btn btn-dark">Search</button>
         </form>
+        {% else %}
+        <p class="lead mt-4">Please <a href="{{ url_for('login') }}">log in</a> to search for products.</p>
+        {% endif %}
     </section>
 
     <!-- Recommendations -->
@@ -156,7 +160,7 @@
                             <div class="card-body">
                                 <h5 class="card-title">{{ truncate(product['Product Name'], 12) }}</h5>
                                 <p class="card-text">Brand: {{ product['Brand'] }}</p>
-                                <p class="card-text">Price: ${{ product['List Price'] }}</p> <!-- Display the price -->
+                                <p class="card-text">Price: ${{ product['List Price'] }}</p>
                                 <button type="button" class="btn btn-primary add-to-cart"
                                     data-product-id="{{ product['Prod Id'] }}"
                                     data-product-name="{{ product['Product Name'] }}"
@@ -213,6 +217,30 @@
     {% endif %}
     {% endwith %}
 
+    <!-- Modal for Product Rating -->
+    <div class="modal fade" id="ratingModal" tabindex="-1" role="dialog" aria-labelledby="ratingModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="ratingModalLabel">Rate this Product</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="ratingForm">
+                        <div class="form-group">
+                            <label for="ratingInput">Enter a rating (1-5):</label>
+                            <input type="number" class="form-control" id="ratingInput" min="1" max="5" required>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="submitRating">Submit Rating</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Call to Action Section -->
     <section class="bg-dark text-white text-center py-5">
         <h2>Sign Up for Exclusive Offers</h2>
@@ -227,33 +255,49 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
+        let currentProductId, currentProductName, currentPrice;
+    
         $(document).ready(function () {
             $('.add-to-cart').click(function () {
-                const productId = $(this).data('product-id');
-                const productName = $(this).data('product-name');
-                const rating = $(this).data('rating');
-                const price = $(this).data('price'); 
+                // Get product data from button attributes
+                currentProductId = $(this).data('product-id');
+                currentProductName = $(this).data('product-name');
+                currentPrice = $(this).data('price');
     
-                $.ajax({
-                    url: '/add_to_cart',
-                    type: 'POST',
-                    data: {
-                        product_id: productId,
-                        product_name: productName,
-                        rating: rating,
-                        price: price  
-                    },
-                    success: function (response) {
-                        if (response.success) {
-                            alert(response.message); 
-                        } else {
-                            alert(response.message); 
+                // Show the rating modal
+                $('#ratingModal').modal('show');
+            });
+    
+            // Submit rating
+            $('#submitRating').click(function () {
+                const rating = $('#ratingInput').val();
+    
+                if (rating >= 1 && rating <= 5) {
+                    // Make AJAX request to add product to the cart with rating
+                    $.ajax({
+                        url: '/add_to_cart',
+                        type: 'POST',
+                        data: {
+                            product_id: currentProductId,
+                            product_name: currentProductName,
+                            rating: rating,
+                            price: currentPrice
+                        },
+                        success: function (response) {
+                            $('#ratingModal').modal('hide');
+                            if (response.success) {
+                                alert(response.message);
+                            } else {
+                                alert(response.message);
+                            }
+                        },
+                        error: function (xhr, status, error) {
+                            alert('An error occurred: ' + error);
                         }
-                    },
-                    error: function (xhr, status, error) {
-                        alert('An error occurred: ' + error);
-                    }
-                });
+                    });
+                } else {
+                    alert('Please enter a valid rating between 1 and 5.');
+                }
             });
         });
     </script>    
