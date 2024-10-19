@@ -443,14 +443,19 @@ def recommendations():
         products = request.form.get('products')
         target_user_id = request.form.get('user_id')
         product_data = get_product_data()
-        user_data = get_user_and_product_data()
-        
-        hybrid_rec = hybrid_recommendations(user_data, product_data, target_user_id, products)
+
+        # Check if user is logged in (i.e., target_user_id exists)
+        if target_user_id:
+            user_data = get_user_and_product_data()
+            # Use hybrid recommendation if user is logged in
+            hybrid_rec = hybrid_recommendations(user_data, product_data, target_user_id, products)
+        else:
+            # Use content-based recommendation only if user is not logged in
+            hybrid_rec = content_based_recommendations(product_data, products)
 
         if hybrid_rec.empty:
             message = "No recommendations available for this product."
             return render_template('main.html', message=message)
-
         else:
             # Create a list of random image URLs for each recommended product
             random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(hybrid_rec))]
@@ -461,7 +466,8 @@ def recommendations():
                                    truncate=truncate, 
                                    random_product_image_urls=random_product_image_urls,
                                    random_price=prices)
-        
+
+       
 # add to cart
 @app.route("/add_to_cart", methods=['POST'])
 def add_to_cart():

@@ -76,3 +76,82 @@ body {
     text-decoration: none;  /* Removes the underline */
     color: inherit;         /* Makes the text color inherit from parent, preventing blue links */
 }
+
+/* Center modal content */
+.modal-dialog {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%; /* Optional: ensures vertical centering */
+}
+
+/* Center elements inside the modal */
+.modal-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.modal-header {
+    justify-content: center; /* Center the content within the modal header */
+    text-align: center; /* Center text */
+    width: 100%; /* Ensure full width */
+}
+
+input[type="range"] {
+    width: 80%; /* Adjust slider width */
+    height: 8px;
+    background: #ddd;
+    outline: none;
+    opacity: 0.7;
+    transition: opacity .15s ease-in-out;
+    margin: 20px 0;
+}
+
+input[type="range"]:hover {
+    opacity: 1;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+    background-color: #f39c12;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: background-color 0.15s ease-in-out;
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background-color: #f39c12;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: background-color 0.15s ease-in-out;
+}
+
+/* Align submit button to center */
+#submitRating {
+    display: block;
+    margin: 20px auto;
+}
+
+.toast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1050; /* Make sure it's on top of other elements */
+    width: 300px;
+    padding: 15px;
+    background-color: rgba(0, 0, 0, 0.9);
+    color: white;
+    border-radius: 5px;
+    text-align: center;
+    transition: opacity 0.5s;
+    opacity: 0; /* Start hidden */
+}
+
+.toast.show {
+    opacity: 1; /* Show when the class is added */
+}
