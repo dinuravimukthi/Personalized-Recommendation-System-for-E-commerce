@@ -168,7 +168,9 @@ def item_based_recommendation(user_id, user_data, product_data, n_top=5):
         no_top: number of top recommendations to return
 
     Return
-        Dataframe with top recommendation product data
+        Dataframe with top recommendation product data,
+        relevance scores, and metrics if there are recommendations
+        None if not
     """
     import operator
     
@@ -180,7 +182,7 @@ def item_based_recommendation(user_id, user_data, product_data, n_top=5):
     # User-product matrix
     matrix = agg_ratings_df.pivot_table(index='Prod Id', columns='User Id', values='Rating')
     # Normalize the matrix
-    matrix = matrix.subtract(matrix.mean(axis=1), axis=0)
+    # matrix = matrix.subtract(matrix.mean(axis=1), axis=0)
     
     # Cosine similarity matrix
     item_similarity_cosine = cosine_similarity(matrix.fillna(0))
@@ -218,15 +220,23 @@ def item_based_recommendation(user_id, user_data, product_data, n_top=5):
     if len(pred_ratings) > 0:
         recs = sorted(pred_ratings.items(), key=operator.itemgetter(1), reverse=True)[:n_top] # Top recommendations
         recs_prod_ids = []
+        rel_scores = []
         for idx, val in enumerate(recs):
             recs_prod_ids.append(recs[idx][0])
+            rel_scores.append(float(recs[idx][1]))
             
         # Create the output dataframe
         df = product_data[product_data['Prod Id'].isin(recs_prod_ids)].reset_index(drop=True)
         
-        return df
+        # Calculate metrics
+        metrics = {
+            'avg_cg': round(calculate_avg_cg(rel_scores), 4),
+            'dcg': round(calculate_dcg(rel_scores), 4),
+            'ndcg': round(calculate_ndcg(rel_scores), 4),
+        }
+        return df, rel_scores, metrics
     else:
-        return None
+        return None, None, None
 
 # Item Based Colleborative Filtering Recommendations For All The Products The
 # Customers Who Purchased a Specific Product Bought.
@@ -284,12 +294,21 @@ def specific_item_based_recommendation(product_id, user_data, product_data, n_to
         df = product_data[product_data['Prod Id'].isin(top_recommendations['Prod Id'].tolist())].reset_index(drop=True)
         df = pd.merge(df, top_recommendations[['Prod Id', 'relevance_score']], on='Prod Id', how='inner')
         df = df.sort_values('relevance_score', ascending=False)
+        rel_scores = [round(s, 4) for s in  df['relevance_score'].to_list()]
+        
         df = df.drop('relevance_score', axis=1)
 
-        return top_recommendations, df
+        # Calculate metrics
+        metrics = {
+            'avg_cg': round(calculate_avg_cg(rel_scores), 4),
+            'dcg': round(calculate_dcg(rel_scores), 4),
+            'ndcg': round(calculate_ndcg(rel_scores), 4),
+        }
+
+        return df, rel_scores, metrics
 
     except:
-        return None, None
+        return None, None, None
 
 # Hybrid Recommendation
 def hybrid_recommendations(user_data, product_data, target_user_id, item_name, top_n=10):
@@ -305,34 +324,35 @@ def hybrid_recommendations(user_data, product_data, target_user_id, item_name, t
     collaborative_filtering_rec = collaborative_filtering_recommendations(user_data, product_data, target_user_id, top_n)
 
     # Get Item Basesd filtering recommendations
-    item_based_rec = item_based_recommendation(target_user_id, user_data, product_data, top_n)
+    item_based_rec, ib_scores, ib_metrics = item_based_recommendation(target_user_id, user_data, product_data, top_n)
 
     # Merge and deduplicate the recommendations
     if item_based_rec is not None:
         hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec, item_based_rec]).drop_duplicates(subset=['Prod Id'])
+        print(f'METRICS: Item Based Recommendations for User {target_user_id}: {ib_metrics}')
     else:
         hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec]).drop_duplicates(subset=['Prod Id'])
     
     hybrid_rec = hybrid_rec.sort_values('Rating', ascending=False)
-    print(hybrid_rec['Product Name'])
+    
     return hybrid_rec.head(10)
 
 # Function to calculate average CG
 def calculate_avg_cg(relevance_scores):
-    return np.sum(relevance_scores) / (5 * len(relevance_scores))
+    return float(np.sum(relevance_scores) / (5 * len(relevance_scores)))
 
 # Function to calculate DCG
 def calculate_dcg(relevance_scores):
-    return np.sum([rel / np.log2(idx + 2) for idx, rel in enumerate(relevance_scores)])
+    return float(np.sum([rel / np.log2(idx + 2) for idx, rel in enumerate(relevance_scores)]))
 
 # Function to calculate NDCG
-def calculage_ndcg(relevance_scores):
+def calculate_ndcg(relevance_scores):
     # Calculate DCG
     dcg_value = calculate_dcg(relevance_scores)
     # Calculate IDCG
     relevance_scores.sort(reverse=True)
     idcg_value = calculate_dcg(relevance_scores)
-    return dcg_value / idcg_value if idcg_value != 0 else 0
+    return float(dcg_value / idcg_value) if idcg_value != 0 else 0
 
 #getting random image urls
 random_image_urls = [
@@ -490,6 +510,33 @@ def add_to_cart():
         # Return a JSON response indicating failure
         return jsonify({'success': False, 'message': 'Please log in to add items to your cart.'})
 
+# Update product rating and rating count
+@app.route("/update_product_rating", methods=['POST'])
+def update_product_rating():
+    product_id = int(request.form['product_id'])
+
+    new_user_product_data = get_user_and_product_data()
+
+    agg_ratings = new_user_product_data.groupby('Prod Id').agg(mean_rating = ('Rating', 'mean'), rating_count=('Rating', 'count')).reset_index()
+    agg_rating_for_product = agg_ratings[agg_ratings['Prod Id'] == product_id]
+    new_rating = list(agg_rating_for_product['mean_rating'])[0]
+    new_rating_count = list(agg_rating_for_product['rating_count'])[0]
+
+    print(f'new_ratings {new_rating}, {new_rating_count}')
+
+    # Updata the product_data entry
+    product = Product_data.query.filter_by(prod_id=str(product_id)).first()
+    print(product)
+    if product:
+        product.rating = str(round(new_rating, 2))
+        product.rating_count = str(new_rating_count)
+        db.session.commit()
+        print(f'Updated rating and rating count for product {product_id}')
+    else:
+        print(f"Product {product_id} not found")
+    # Return a JSON response indicating success
+    return jsonify({'success': True, 'message': 'Updated product rating and rating count!'})
+
 
 # cart
 @app.route("/cart")
@@ -581,13 +628,16 @@ def product_detail(product_id):
     # Fetch product details from your data source using the product_id
     user_data = get_user_and_product_data()
     product_data = get_product_data()
-    print(product_data[['Prod Id', 'Product Name', 'Rating', 'Rating Count']])
+    #print(product_data[['Prod Id', 'Product Name', 'Rating', 'Rating Count']])
     product = fetch_product_by_id(product_id, product_data)
 
     # Content based recommendations
     content_based_rec = content_based_recommendations(product_data, product['Product Name'], top_n=20)
     # Item based collaborative recommendations
-    top_rec, specific_item_based_rec = specific_item_based_recommendation(product_id, user_data, product_data, n_top=20)
+    specific_item_based_rec, sib_scores, sib_metrics = specific_item_based_recommendation(product_id, user_data, product_data, n_top=20)
+
+    print(f'METRICS: Specific Item Based Recommendation Scores for Product {product_id}: {sib_metrics}')
+
     return render_template('product.html', 
                            product=product, 
                            content_based_recommendations=content_based_rec, 

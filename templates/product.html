@@ -355,6 +355,16 @@
                             $('#ratingModal').modal('hide');
                             if (response.success) {
                                 alert(response.message);
+
+                                // Call to update the rating of the product
+                                $.ajax({
+                                    url: '/update_product_rating',  // Second URL
+                                    type: 'POST',
+                                    data: {
+                                        product_id: currentProductId,
+                                    },
+                                });
+                                
                             } else {
                                 alert(response.message);
                             }
