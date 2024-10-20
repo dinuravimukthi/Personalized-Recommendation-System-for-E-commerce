@@ -120,9 +120,27 @@ def content_based_recommendations(train_data, item_name, top_n=10):
 
     # Display the details of the recommended products
     recommended_products = train_data.iloc[recommended_indices]
-    recommended_products = recommended_products.sort_values('Rating', ascending=False)
+    # recommended_products = recommended_products.sort_values('Rating', ascending=False)
 
-    return recommended_products
+    
+    rel_scores_df = pd.DataFrame(sim_scores[1:top_n+1]).rename({0:'Index', 1:'Similarity Score'}, axis=1)
+    rel_scores_df.index = rel_scores_df.Index
+    rel_scores_df = rel_scores_df.join(recommended_products)
+    rel_scores_df['Relevance Score'] = rel_scores_df['Similarity Score'] * rel_scores_df['Rating']
+    rel_scores_df = rel_scores_df.sort_values('Relevance Score', ascending=False)
+
+    rel_scores = [round(s, 4) for s in rel_scores_df['Relevance Score'].to_list()]
+
+    recommended_products = rel_scores_df.drop(['Index', 'Similarity Score'], axis=1).reset_index(drop=True)
+    
+    # Calculate metrics
+    metrics = {
+        'avg_cg': round(calculate_avg_cg(rel_scores), 4),
+        'dcg': round(calculate_dcg(rel_scores), 4),
+        'ndcg': round(calculate_ndcg(rel_scores), 4),
+    }
+    
+    return recommended_products, rel_scores, metrics
 
 # Collaborative Filtering Recommendation
 def collaborative_filtering_recommendations(train_df, product_df, target_user_id, top_n=10):
@@ -140,8 +158,10 @@ def collaborative_filtering_recommendations(train_df, product_df, target_user_id
     user_similarities = user_similarity[target_user_index]
     similar_users_indices = user_similarities.argsort()[::-1][1:]
 
+
     # Step 5: Find recommended items and calculate relevance scores
     recommended_items = {}
+
     for user_index in similar_users_indices:
         rated_by_similar_user = user_item_matrix.iloc[user_index]
         not_rated_by_target_user = (rated_by_similar_user > 0) & (user_item_matrix.iloc[target_user_index] == 0)
@@ -348,10 +368,13 @@ def hybrid_recommendations(user_data, product_data, target_user_id, item_name, t
         target_user_id = int(target_user_id)  # Convert to int if necessary
 
     # Getcontent Based recommendations
-    content_based_rec = content_based_recommendations(product_data, item_name, top_n)
+
+    content_based_rec, cb_scores, cb_metrics = content_based_recommendations(product_data, item_name, top_n)
+    print(f'METRICS: Content Based Recommendations for Product {product_data[product_data['Product Name'] == item_name]['Prod Id'].to_list()[0]}: {cb_metrics}')
     
     # Get collaborative filtering recommendations
     collaborative_filtering_rec, collab_metrics = collaborative_filtering_recommendations(user_data, product_data, target_user_id, top_n)
+
 
     # Get item-based filtering recommendations
     item_based_rec, ib_scores, ib_metrics = item_based_recommendation(target_user_id, user_data, product_data, top_n)
@@ -557,11 +580,9 @@ def update_product_rating():
     new_rating = list(agg_rating_for_product['mean_rating'])[0]
     new_rating_count = list(agg_rating_for_product['rating_count'])[0]
 
-    print(f'new_ratings {new_rating}, {new_rating_count}')
-
     # Updata the product_data entry
     product = Product_data.query.filter_by(prod_id=str(product_id)).first()
-    print(product)
+    
     if product:
         product.rating = str(round(new_rating, 2))
         product.rating_count = str(new_rating_count)
@@ -667,10 +688,11 @@ def product_detail(product_id):
     product = fetch_product_by_id(product_id, product_data)
 
     # Content based recommendations
-    content_based_rec = content_based_recommendations(product_data, product['Product Name'], top_n=20)
+    content_based_rec, cb_scores, cb_metrics = content_based_recommendations(product_data, product['Product Name'], top_n=20)
     # Item based collaborative recommendations
     specific_item_based_rec, sib_scores, sib_metrics = specific_item_based_recommendation(product_id, user_data, product_data, n_top=20)
 
+    print(f'METRICS: Content Based Recommendations for Product {product['Prod Id']}: {cb_metrics}')
     print(f'METRICS: Specific Item Based Recommendation Scores for Product {product_id}: {sib_metrics}')
 
     return render_template('product.html', 
