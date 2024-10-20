@@ -144,7 +144,7 @@ def content_based_recommendations(train_data, item_name, top_n=10):
 
 # Collaborative Filtering Recommendation
 def collaborative_filtering_recommendations(train_df, product_df, target_user_id, top_n=10):
-
+    
     # Step 1: Create the user-item matrix
     user_item_matrix = train_df.pivot_table(index='User Id', columns='Product Name', values='Rating', aggfunc='mean').fillna(0)
 
@@ -157,22 +157,54 @@ def collaborative_filtering_recommendations(train_df, product_df, target_user_id
     # Step 4: Get similarity scores for the target user
     user_similarities = user_similarity[target_user_index]
     similar_users_indices = user_similarities.argsort()[::-1][1:]
-    
-    # Step 5: Find recommended items
-    recommended_items = []
+
+
+    # Step 5: Find recommended items and calculate relevance scores
+    recommended_items = {}
+
     for user_index in similar_users_indices:
         rated_by_similar_user = user_item_matrix.iloc[user_index]
         not_rated_by_target_user = (rated_by_similar_user > 0) & (user_item_matrix.iloc[target_user_index] == 0)
-        recommended_items.extend(user_item_matrix.columns[not_rated_by_target_user][:top_n])
+        
+        # Get products that are not rated by target user
+        for product in user_item_matrix.columns[not_rated_by_target_user]:
+            if product not in recommended_items:
+                # Initialize relevance score as 0
+                recommended_items[product] = 0
+            # Add to relevance score weighted by user similarity
+            recommended_items[product] += user_similarities[user_index] * rated_by_similar_user[product]
 
         if len(recommended_items) >= top_n:
             break
 
-    # Step 6: Get recommended items' details
-    recommended_items_details = product_df[product_df['Product Name'].isin(recommended_items)]
-    recommended_items_details = recommended_items_details.sort_values('Rating', ascending=False)
+    # Step 6: Sort items by relevance score
+    recommended_items = sorted(recommended_items.items(), key=lambda x: x[1], reverse=True)
+
+    # Step 7: Get recommended items' details
+    recommended_product_names = [item[0] for item in recommended_items][:top_n]
+    recommended_products_details = product_df[product_df['Product Name'].isin(recommended_product_names)]
     
-    return recommended_items_details.head(top_n)
+    # Add relevance scores to the DataFrame
+    recommended_products_details['relevance_score'] = recommended_products_details['Product Name'].apply(
+        lambda x: dict(recommended_items).get(x, 0)
+    )
+    
+    # Sort by relevance score
+    recommended_products_details = recommended_products_details.sort_values('relevance_score', ascending=False)
+
+    # Step 8: Compute metrics (Average CG, DCG, NDCG)
+    relevance_scores = list(recommended_products_details['relevance_score'])
+
+    avg_cg = calculate_avg_cg(relevance_scores)
+    ndcg = calculate_ndcg(relevance_scores)
+
+    # Return recommendations and metrics
+    metrics = {
+        'average_cg': avg_cg,
+        'ndcg': ndcg
+    }
+    
+    return recommended_products_details.head(top_n), metrics
 
 # Item Based Collaborative Filtering Recommendation
 def item_based_recommendation(user_id, user_data, product_data, n_top=5):
@@ -336,22 +368,29 @@ def hybrid_recommendations(user_data, product_data, target_user_id, item_name, t
         target_user_id = int(target_user_id)  # Convert to int if necessary
 
     # Getcontent Based recommendations
+
     content_based_rec, cb_scores, cb_metrics = content_based_recommendations(product_data, item_name, top_n)
     print(f'METRICS: Content Based Recommendations for Product {product_data[product_data['Product Name'] == item_name]['Prod Id'].to_list()[0]}: {cb_metrics}')
+    
+    # Get collaborative filtering recommendations
+    collaborative_filtering_rec, collab_metrics = collaborative_filtering_recommendations(user_data, product_data, target_user_id, top_n)
 
-    # Get Collaborative filtering recommendations
-    collaborative_filtering_rec = collaborative_filtering_recommendations(user_data, product_data, target_user_id, top_n)
 
-    # Get Item Basesd filtering recommendations
+    # Get item-based filtering recommendations
     item_based_rec, ib_scores, ib_metrics = item_based_recommendation(target_user_id, user_data, product_data, top_n)
 
     # Merge and deduplicate the recommendations
     if item_based_rec is not None:
         hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec, item_based_rec]).drop_duplicates(subset=['Prod Id'])
-        print(f'METRICS: Item Based Recommendations for User {target_user_id}: {ib_metrics}')
     else:
         hybrid_rec = pd.concat([content_based_rec, collaborative_filtering_rec]).drop_duplicates(subset=['Prod Id'])
     
+    # Print metrics from collaborative filtering and item-based recommendations
+    print(f'METRICS: Collaborative Filtering Recommendations for User {target_user_id}: {collab_metrics}')
+    if item_based_rec is not None:
+        print(f'METRICS: Item-Based Recommendations for User {target_user_id}: {ib_metrics}')
+
+    # Sort by rating and return top N results
     hybrid_rec = hybrid_rec.sort_values('Rating', ascending=False)
     
     return hybrid_rec.head(10)
@@ -482,14 +521,19 @@ def recommendations():
         products = request.form.get('products')
         target_user_id = request.form.get('user_id')
         product_data = get_product_data()
-        user_data = get_user_and_product_data()
-        
-        hybrid_rec = hybrid_recommendations(user_data, product_data, target_user_id, products)
+
+        # Check if user is logged in (i.e., target_user_id exists)
+        if target_user_id:
+            user_data = get_user_and_product_data()
+            # Use hybrid recommendation if user is logged in
+            hybrid_rec = hybrid_recommendations(user_data, product_data, target_user_id, products)
+        else:
+            # Use content-based recommendation only if user is not logged in
+            hybrid_rec = content_based_recommendations(product_data, products)
 
         if hybrid_rec.empty:
             message = "No recommendations available for this product."
             return render_template('main.html', message=message)
-
         else:
             # Create a list of random image URLs for each recommended product
             random_product_image_urls = [random.choice(random_image_urls) for _ in range(len(hybrid_rec))]
@@ -500,7 +544,8 @@ def recommendations():
                                    truncate=truncate, 
                                    random_product_image_urls=random_product_image_urls,
                                    random_price=prices)
-        
+
+       
 # add to cart
 @app.route("/add_to_cart", methods=['POST'])
 def add_to_cart():
