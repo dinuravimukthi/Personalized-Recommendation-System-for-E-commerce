@@ -1,7 +1,5 @@
 # Personalized-Recommendation-System-for-E-commerce
 This project develops a personalized recommendation system for an e-commerce platform to enhance the customer shopping experience. The primary goal is to provide tailored product suggestions by analyzing user preferences, leading to improved product discoverability, increased sales, and a more engaging shopping experience. 
-<br><br>
-Dataset
 
 ## Preprocessing
 Preprocessing was done for the initial product dataset to extract the targetted products and create tags for each of them.
