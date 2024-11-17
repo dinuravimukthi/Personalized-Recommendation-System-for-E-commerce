@@ -1,5 +1,7 @@
 # Personalized-Recommendation-System-for-E-commerce
 This project develops a personalized recommendation system for an e-commerce platform to enhance the customer shopping experience. The primary goal is to provide tailored product suggestions by analyzing user preferences, leading to improved product discoverability, increased sales, and a more engaging shopping experience. 
+<br>
+![Screenshot 2024-11-17 232320](https://github.com/user-attachments/assets/103798de-6f76-4295-8114-7cdafee2476f)
 
 ## Preprocessing
 Preprocessing was done for the initial product dataset to extract the targetted products and create tags for each of them.
@@ -79,6 +81,7 @@ The backend handles user interactions and executes the recommendation logic.
 * Then Duplicates are removed to refrain from recommending the same product multiple times.
 * This multi-dimensional recommendation logic allows the system to provide a diverse set of suggestions.
 
+
 ### Trending Products
 > Highlight the most popular items in the store.
 * The score is calculated by multiplying each product's Rating by its Rating Count.
@@ -119,3 +122,12 @@ The MySQL database is structured to smoothly manage user and product information
 #### Product purchases
 > This table contains purchases made by the user and relevant product metadata such as product ID and ratings given by each user.
 >  By organizing product attributes in this way, the system can perform efficient queries and retrieve necessary details for generating recommendations. 
+
+<br><br>
+### Screenshots
+<br>
+
+![Screenshot 2024-11-17 232242](https://github.com/user-attachments/assets/19f5ce33-7b36-4484-80b5-6b3e60614ee8)
+![Screenshot 2024-11-17 231827](https://github.com/user-attachments/assets/e97a090d-6001-4aa8-9dc4-107e57c8b0e4)
+![Screenshot 2024-11-17 232208](https://github.com/user-attachments/assets/3ae89cd6-e7b2-4a37-acc7-384dc6c873d7)
+![Screenshot 2024-11-17 232004](https://github.com/user-attachments/assets/cfd47083-158e-4d75-8eea-0c8e153ec021)
